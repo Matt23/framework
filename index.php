@@ -1,7 +1,7 @@
 <?php
 
 	/**
-	*  Controlador frontal
+	*  PHP Simple Framework
 	*  Matías / 2016
 	*/
 
@@ -10,17 +10,24 @@
 
 	session_start();
 
-	include_once('./constants/main.php');
+	include_once('./config/config.php');
 
 	$_SESSION['lang'] = !$_SESSION['lang'] ? 'es/' : $_SESSION['lang'];
 
-	function __autoload($class_name) {
-		require_once './class/'.$class_name.'.php';
+	function my_autoloader($class) {
+		if (strpos($class, 'CI_') !== 0) {
+			if (file_exists($file = './app/' . $class . '.php')) {
+				require_once $file;
+			}
+		}
 	}
+
+	spl_autoload_register('my_autoloader');
 
 	//---------------------------------------------------------------------------------
 	//Prevención de ataques XSS.
-	if ( is_array($_POST) ) {
+	$RequestSignature = '';
+	if (is_array($_POST)) {
 		foreach ($_POST as $key => $value) {
 			if ($value && !is_array($value)) {
 				$_POST[$key] = htmlentities($value);
@@ -28,7 +35,7 @@
 				// Prevención del reenvío de formularios: 
 				$RequestSignature = md5($_SERVER['REQUEST_URI'] . $_SERVER['QUERY_STRING'] . print_r($_POST, true));
 				if ($_SESSION['LastRequest'] == $RequestSignature) {
-					die(header('location:'.INSTALLPATH.'usuarios/login'));
+					die(header('location:' . INSTALLPATH . 'users/login'));
 				}
 				//---------------------------------------------------------------------
 			} elseif (is_array($value)) {
@@ -51,13 +58,18 @@
 	$_SESSION['LastRequest'] = $RequestSignature;
 	//---------------------------------------------------------------------------------
 
-    $url = explode('/', $_SERVER['REQUEST_URI']);
+    $url = trim($_SERVER['REQUEST_URI'], '/');
+	$url = explode('/', $url);
     $newurl = null;
 
-    // Defino las rutas. Si no defino rutas, el default es tal como estaba la url.
+	if (trim(end($url)) == '' || trim(end($url)) == trim(INSTALLPATH, '/')) {
+		array_push($url, 'home');
+	}
+
+	// Defino las rutas. Si no defino rutas, el default es tal como estaba la url.
     switch (end($url)) {
-        case 'product-distribution':
-            $newurl = '/corp/products';
+        case 'home':
+            $newurl = '/home/index';
             break;
         case 'value-added-services':
             $newurl = '/corp/services';
@@ -94,11 +106,11 @@
 		}
 	}
 
-	if (file_exists('./class/'.$controller.'.php') && class_exists($controller,true)) {
+	if (file_exists('./app/' . $controller . '.php') && class_exists($controller, true)) {
 		$obj = new $controller;
 		if (is_object($obj)) {
 			if (method_exists($obj, $method)) {
-				$obj->$method($_GET,$_POST,$params);
+				$obj->$method($_GET, $_POST, $params);
 			} else {
 				$main = new main();
 				$main->notFound();
@@ -108,7 +120,6 @@
 			$main->notFound();
 		}
 	} else {
-		header('location:'.INSTALLPATH.'./login/ingresar');
+		header('location:' . INSTALLPATH);
 	}
-
 ?>
